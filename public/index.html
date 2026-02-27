@@ -127,10 +127,6 @@ html,body{height:100%;background:var(--bg-base);color:var(--text-hi);overflow:hi
 .bubble strong{color:#fff;font-weight:700}
 .bubble em{color:#adb9d4;font-style:italic}
 
-/* Streaming cursor */
-.cursor{display:inline-block;width:2px;height:1em;background:var(--teal);margin-left:2px;vertical-align:text-bottom;animation:blink-cur 0.7s steps(1) infinite}
-@keyframes blink-cur{0%,100%{opacity:1}50%{opacity:0}}
-
 .msg-actions{display:flex;gap:5px;margin-top:7px;opacity:0;transition:opacity 0.18s}
 .msg:hover .msg-actions{opacity:1}
 .msg.user .msg-actions{justify-content:flex-end}
@@ -647,8 +643,8 @@ async function send() {
   // Refresh token if signed in
   if (clerkUser) { try { clerkToken = await window.Clerk?.session?.getToken(); } catch(_){} }
 
-  // Create streaming AI bubble
-  const aiBubble = createStreamBubble();
+  // Typing indicator
+  const typing = addTyping();
 
   try {
     const res = await fetch(API, {
@@ -656,54 +652,19 @@ async function send() {
       body: JSON.stringify({ sessionId:curId, message:msg, history:history.slice(0,-1), token:clerkToken||null }),
     });
 
-    if (!res.ok) { const d=await res.json().catch(()=>({})); throw new Error(d.error||`HTTP ${res.status}`); }
+    const data = await res.json();
+    typing.remove();
 
-    // Read SSE stream
-    const reader  = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer='', fullText='';
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
 
-    const bubbleEl = aiBubble.querySelector('.bubble');
-    const cursor   = bubbleEl.querySelector('.cursor');
-
-    while(true) {
-      const {done,value} = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value,{stream:true});
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const raw = line.slice(6).trim();
-        try {
-          const data = JSON.parse(raw);
-          if (data.chunk) {
-            fullText += data.chunk;
-            // Render before cursor
-            cursor.before(document.createTextNode(''));
-            bubbleEl.innerHTML = mdLite(esc(fullText)) + '<span class="cursor"></span>';
-            scrollBot();
-          }
-          if (data.done || data.error) {
-            if (data.error) throw new Error(data.error);
-            break;
-          }
-        } catch(_) {}
-      }
-    }
-
-    // Finalise bubble — remove cursor
-    aiBubble.querySelector('.bubble').innerHTML = mdLite(esc(fullText));
-    addBubbleActions(aiBubble, fullText);
-
-    history.push({ role:'model', parts:[{text:fullText}] });
+    addBubble('ai', data.reply);
+    history.push({ role:'model', parts:[{text:data.reply}] });
     const s = sessions.find(x=>x.id===curId);
     if (s) s.history=history;
     saveSessions();
 
   } catch(err) {
-    aiBubble.remove();
+    typing.remove();
     history.pop();
     document.getElementById('msgs-list').lastElementChild?.remove();
     showErr(err.message||'Something went wrong. Please try again.');
