@@ -2,17 +2,16 @@
  * ScoTech AI — Cloudflare Pages Function
  * Route: /api/chat  (POST)
  *
- * ZERO npm dependencies — uses Neon's HTTP API directly.
+ * Powered by OpenRouter — zero npm dependencies.
  *
- * Environment variables (set in Cloudflare Pages dashboard):
- *   GEMINI_API_KEY   — your Google Gemini API key
- *   DATABASE_URL     — Neon PostgreSQL connection string (postgresql://...)
+ * Environment variables (Cloudflare Pages dashboard):
+ *   OPENROUTER_API_KEY  — get free at openrouter.ai/keys
+ *   DATABASE_URL        — Neon PostgreSQL connection string
  */
 
-const GEMINI_MODEL = 'gemini-1.5-flash-001';
-const GEMINI_URL   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const MODEL    = 'google/gemini-2.0-flash-exp:free';
+const OR_URL   = 'https://openrouter.ai/api/v1/chat/completions';
 
-// ── CORS HEADERS ────────────────────────────────────────────────────────────
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -20,49 +19,57 @@ const CORS = {
   'Content-Type': 'application/json',
 };
 
-// ── MAIN HANDLER ────────────────────────────────────────────────────────────
 export async function onRequestPost(context) {
   const { request, env } = context;
 
   try {
-    const body    = await request.json();
+    const body = await request.json();
     const { sessionId, message, history = [] } = body;
 
     if (!message?.trim()) {
       return json({ error: 'Message is required.' }, 400);
     }
 
-    // ── Build Gemini conversation ──────────────────────────────────────────
-    const contents = [
-      ...history.slice(-20),           // last 10 pairs for context
-      { role: 'user', parts: [{ text: message }] },
+    // Build messages array (OpenAI-compatible format)
+    const messages = [
+      {
+        role: 'system',
+        content: 'You are ScoTech AI, a smart and helpful assistant. Be clear, concise, and friendly.'
+      },
+      ...history.slice(-20).map(m => ({
+        role:    m.role === 'model' ? 'assistant' : 'user',
+        content: m.parts[0].text
+      })),
+      { role: 'user', content: message }
     ];
 
-    // ── Call Gemini ────────────────────────────────────────────────────────
-    const geminiRes = await fetch(`${GEMINI_URL}?key=${env.GEMINI_API_KEY}`, {
+    // Call OpenRouter
+    const orRes = await fetch(OR_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+        'HTTP-Referer':  'https://scotech-ai.pages.dev',
+        'X-Title':       'ScoTech AI',
+      },
       body: JSON.stringify({
-        contents,
-        generationConfig: {
-          temperature:      0.85,
-          topK:             40,
-          topP:             0.95,
-          maxOutputTokens:  2048,
-        },
+        model:       MODEL,
+        messages,
+        temperature: 0.85,
+        max_tokens:  2048,
       }),
     });
 
-    if (!geminiRes.ok) {
-      const err = await geminiRes.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `Gemini error ${geminiRes.status}`);
+    if (!orRes.ok) {
+      const err = await orRes.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `OpenRouter error ${orRes.status}`);
     }
 
-    const geminiData = await geminiRes.json();
-    const aiText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!aiText) throw new Error('Empty response from Gemini.');
+    const orData = await orRes.json();
+    const aiText = orData?.choices?.[0]?.message?.content;
+    if (!aiText) throw new Error('Empty response from OpenRouter.');
 
-    // ── Persist to Neon via HTTP API (zero npm packages) ─────────────────────
+    // Persist to Neon
     if (env.DATABASE_URL && sessionId) {
       try {
         await neonQuery(env.DATABASE_URL, `
@@ -94,7 +101,6 @@ export async function onRequestPost(context) {
             ($1, 'model', $3)
         `, [sessionId, message, aiText]);
       } catch (dbErr) {
-        // DB errors are non-fatal — AI reply still returns to user
         console.error('[ScoTech DB Error]', dbErr.message);
       }
     }
@@ -107,13 +113,10 @@ export async function onRequestPost(context) {
   }
 }
 
-// ── OPTIONS preflight ─────────────────────────────────────────────────────────
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
 
-// ── Neon HTTP Query Helper ────────────────────────────────────────────────────
-// No npm package needed — calls Neon's native HTTPS SQL endpoint directly.
 async function neonQuery(databaseUrl, sql, params = []) {
   const url   = new URL(databaseUrl);
   const host  = url.hostname;
@@ -137,7 +140,6 @@ async function neonQuery(databaseUrl, sql, params = []) {
   return res.json();
 }
 
-// ── JSON response helper ──────────────────────────────────────────────────────
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: CORS });
 }
