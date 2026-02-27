@@ -4,6 +4,29 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ScoTech AI</title>
+
+<!-- PWA -->
+<meta name="application-name" content="ScoTech AI">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ScoTech AI">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#00c9a7">
+<meta name="msapplication-TileColor" content="#07090f">
+<meta name="msapplication-TileImage" content="/icons/icon-144.png">
+
+<!-- Open Graph -->
+<meta property="og:title" content="ScoTech AI">
+<meta property="og:description" content="Your intelligent AI assistant — ScoTech AI 1.2 Lavender">
+<meta property="og:type" content="website">
+<meta property="og:image" content="/icons/icon-512.png">
+
+<!-- Icons -->
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+<link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;600;700;800;900&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 <!-- Clerk -->
@@ -186,6 +209,11 @@ html,body{height:100%;background:var(--bg-base);color:var(--text-hi);overflow:hi
 .google-btn:hover{border-color:var(--border-lit);background:var(--bg-hover)}
 .auth-error{background:rgba(255,95,126,0.1);border:1px solid rgba(255,95,126,0.25);border-radius:var(--radius-sm);padding:9px 13px;font-family:var(--font-head);font-size:12px;color:#ff8fa3;margin-bottom:14px;display:none}
 
+
+/* Install button */
+.install-btn{display:none;align-items:center;gap:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-family:var(--font-head);font-size:11.5px;color:var(--teal);cursor:pointer;transition:all 0.15s;width:100%}
+.install-btn:hover{border-color:var(--teal);background:var(--teal-glow)}
+
 /* ── RESPONSIVE ── */
 @media(max-width:700px){
   .app{grid-template-columns:1fr}
@@ -277,12 +305,7 @@ html,body{height:100%;background:var(--bg-base);color:var(--text-hi);overflow:hi
     <div class="sidebar-top">
       <div class="brand">
         <div class="brand-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M17 5.5C17 5.5 14.5 3 10.5 3C6.5 3 4 5.5 4 8C4 10.5 6 12 9 12.5" stroke="#07090f" stroke-width="2.4" stroke-linecap="round"/>
-            <path d="M7 18.5C7 18.5 9.5 21 13.5 21C17.5 21 20 18.5 20 16C20 13.5 18 12 15 11.5" stroke="#07090f" stroke-width="2.4" stroke-linecap="round"/>
-            <circle cx="9" cy="12.5" r="1.6" fill="#07090f"/>
-            <circle cx="15" cy="11.5" r="1.6" fill="#07090f"/>
-          </svg>
+          <img src="/icons/icon-192.png" alt="ScoTech AI" width="28" height="28" style="border-radius:6px;">
         </div>
         <div>
           <div class="brand-name">Sco<span>Tech</span></div>
@@ -301,6 +324,10 @@ html,body{height:100%;background:var(--bg-base);color:var(--text-hi);overflow:hi
     </div>
 
     <div class="sidebar-footer">
+      <button class="install-btn" id="install-btn" onclick="installApp()">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v8M3.5 6.5l3 3 3-3M1 11h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Install ScoTech AI App
+      </button>
       <div class="status-pill">
         <div class="status-dot"></div>
         <span>ScoTech AI 1.2 Lavender</span>
@@ -768,6 +795,43 @@ function scrollBot() { const w=document.getElementById('msgs-wrap'); setTimeout(
 function showErr(msg){const b=document.getElementById('err-banner');document.getElementById('err-text').textContent=msg;b.style.display='flex';}
 function hideErr(){document.getElementById('err-banner').style.display='none';}
 function toast(msg){document.querySelector('.toast')?.remove();const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3100);}
+
+
+// ── SERVICE WORKER ──────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('[SW] Registered:', reg.scope))
+      .catch(err => console.warn('[SW] Registration failed:', err));
+  });
+}
+
+// ── PWA INSTALL PROMPT ──────────────────────────────────────────────────────
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show install button in sidebar
+  const btn = document.getElementById('install-btn');
+  if (btn) btn.style.display = 'flex';
+});
+
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(choice => {
+    if (choice.outcome === 'accepted') toast('ScoTech AI installed!');
+    deferredPrompt = null;
+    const btn = document.getElementById('install-btn');
+    if (btn) btn.style.display = 'none';
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  toast('ScoTech AI installed successfully!');
+  deferredPrompt = null;
+});
 
 function mdLite(s){return s.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/`([^`]+)`/g,'<code>$1</code>');}
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
