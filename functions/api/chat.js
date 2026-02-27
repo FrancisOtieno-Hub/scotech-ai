@@ -9,7 +9,7 @@
  *   DATABASE_URL     — Neon PostgreSQL connection string (postgresql://...)
  */
 
-const GEMINI_MODEL = 'gemini-1.5-flash-latest';
+const GEMINI_MODEL = 'gemini-2.0-flash';
 const GEMINI_URL   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 // ── CORS HEADERS ────────────────────────────────────────────────────────────
