@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScoTech AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;600;700;800;900&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ── DESIGN TOKENS ─────────────────────────────────────────────────── */
+:root {
+  --bg-base:      #07090f;
+  --bg-surface:   #0b0e17;
+  --bg-card:      #0f1320;
+  --bg-hover:     #141828;
+  --bg-input:     #111526;
+  --border:       #1c2136;
+  --border-lit:   #2a3356;
+  --teal:         #00c9a7;
+  --teal-dim:     #009e83;
+  --teal-glow:    rgba(0,201,167,0.12);
+  --teal-glow2:   rgba(0,201,167,0.06);
+  --amber:        #f5a623;
+  --text-hi:      #dde4f0;
+  --text-mid:     #7b8aaa;
+  --text-lo:      #363f5a;
+  --user-bg:      #0d1528;
+  --ai-bg:        #080c18;
+  --success:      #00c9a7;
+  --danger:       #ff5f7e;
+  --radius:       12px;
+  --radius-sm:    8px;
+  --radius-xs:    5px;
+  --sidebar-w:    256px;
+  --header-h:     58px;
+  --font-head:    'Cabinet Grotesk', sans-serif;
+  --font-body:    'Lora', Georgia, serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%; background: var(--bg-base);
+  color: var(--text-hi); overflow: hidden;
+  font-family: var(--font-body); font-size: 14.5px; line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── LAYOUT ─────────────────────────────────────────────────────────── */
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  height: 100vh;
+}
+
+/* ── SIDEBAR ─────────────────────────────────────────────────────────── */
+.sidebar {
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-top {
+  padding: 18px 14px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Brand */
+.brand {
+  display: flex; align-items: center; gap: 11px;
+  margin-bottom: 16px; padding: 2px 4px;
+}
+
+.brand-icon {
+  width: 36px; height: 36px; flex-shrink: 0;
+  background: linear-gradient(135deg, #00c9a7 0%, #0098ff 100%);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 18px rgba(0,201,167,0.3), 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.brand-name {
+  font-family: var(--font-head);
+  font-weight: 900; font-size: 19px; letter-spacing: -0.4px;
+  color: var(--text-hi);
+}
+
+.brand-name span { color: var(--teal); }
+
+.brand-ver {
+  font-size: 9.5px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-lo); font-family: var(--font-head); font-weight: 600;
+  margin-top: 1px;
+}
+
+/* New chat button */
+.btn-new {
+  width: 100%; display: flex; align-items: center; justify-content: center;
+  gap: 8px; background: var(--teal); border: none;
+  border-radius: var(--radius-sm); padding: 9px 14px;
+  color: #07090f; font-family: var(--font-head);
+  font-weight: 700; font-size: 13.5px; cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(0,201,167,0.25);
+}
+.btn-new:hover {
+  background: #00e0ba; transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(0,201,167,0.35);
+}
+.btn-new:active { transform: none; }
+
+/* History */
+.sidebar-scroll {
+  flex: 1; overflow-y: auto; padding: 12px 10px;
+}
+.sidebar-scroll::-webkit-scrollbar { width: 3px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border-lit); border-radius: 3px; }
+
+.section-label {
+  font-family: var(--font-head); font-weight: 700;
+  font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--text-lo); padding: 4px 6px 8px;
+}
+
+.hist-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 8px; border-radius: var(--radius-sm);
+  cursor: pointer; color: var(--text-mid);
+  font-family: var(--font-head); font-size: 12.5px; font-weight: 500;
+  transition: all 0.15s; border: 1px solid transparent;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  position: relative;
+}
+.hist-item:hover { background: var(--bg-hover); color: var(--text-hi); border-color: var(--border); }
+.hist-item.active {
+  background: var(--bg-card); color: var(--text-hi);
+  border-color: var(--border-lit);
+}
+.hist-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 20%; bottom: 20%;
+  width: 2.5px; border-radius: 2px; background: var(--teal);
+}
+.hist-item svg { flex-shrink: 0; opacity: 0.45; }
+
+.sidebar-footer {
+  border-top: 1px solid var(--border);
+  padding: 12px 14px;
+}
+
+.status-pill {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 9px 12px;
+  font-family: var(--font-head); font-size: 11.5px; color: var(--text-mid);
+}
+
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--teal); flex-shrink: 0;
+  box-shadow: 0 0 8px var(--teal);
+  animation: breathe 2.5s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--teal); }
+  50%       { opacity: 0.5; box-shadow: 0 0 2px var(--teal); }
+}
+
+/* ── MAIN ────────────────────────────────────────────────────────────── */
+.main {
+  display: flex; flex-direction: column;
+  background: var(--bg-base); position: relative; overflow: hidden;
+}
+
+/* Ambient grid */
+.main::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+}
+
+/* Top teal glow */
+.main::after {
+  content: '';
+  position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
+  width: 500px; height: 220px; pointer-events: none;
+  background: radial-gradient(ellipse, rgba(0,201,167,0.07) 0%, transparent 70%);
+}
+
+/* ── HEADER ─────────────────────────────────────────────────────────── */
+.chat-header {
+  height: var(--header-h);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7,9,15,0.82);
+  backdrop-filter: blur(14px);
+  position: relative; z-index: 10; flex-shrink: 0;
+}
+
+.header-left { min-width: 0; }
+
+.chat-name {
+  font-family: var(--font-head); font-weight: 700; font-size: 14.5px;
+  color: var(--text-hi); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 420px;
+}
+
+.chat-meta {
+  font-family: var(--font-head); font-size: 11px;
+  color: var(--text-lo); margin-top: 1px;
+}
+
+.header-right { display: flex; gap: 6px; flex-shrink: 0; }
+
+.icon-btn {
+  width: 34px; height: 34px; border-radius: var(--radius-sm);
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-mid); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.icon-btn:hover { border-color: var(--border-lit); color: var(--text-hi); background: var(--bg-hover); }
+.icon-btn:active { transform: scale(0.93); }
+
+/* ── MESSAGES ────────────────────────────────────────────────────────── */
+.msgs-wrap {
+  flex: 1; overflow-y: auto;
+  scroll-behavior: smooth; position: relative; z-index: 1;
+}
+.msgs-wrap::-webkit-scrollbar { width: 4px; }
+.msgs-wrap::-webkit-scrollbar-thumb { background: var(--border-lit); border-radius: 4px; }
+
+.msgs-inner {
+  max-width: 800px; margin: 0 auto;
+  padding: 36px 28px; display: flex; flex-direction: column; gap: 6px;
+}
+
+/* ── EMPTY STATE ─────────────────────────────────────────────────────── */
+.empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center;
+  padding: 60px 32px; height: 100%;
+  position: relative; z-index: 1;
+}
+
+.empty-orb {
+  width: 80px; height: 80px; border-radius: 22px; margin: 0 auto 28px;
+  background: linear-gradient(135deg, #00c9a7, #0098ff);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 50px rgba(0,201,167,0.25), 0 0 100px rgba(0,201,167,0.08);
+  animation: orb-float 4s ease-in-out infinite;
+}
+@keyframes orb-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%       { transform: translateY(-10px) rotate(3deg); }
+}
+
+.empty h2 {
+  font-family: var(--font-head); font-weight: 900; font-size: 28px;
+  letter-spacing: -0.5px; color: var(--text-hi);
+  margin-bottom: 10px;
+}
+.empty h2 span { color: var(--teal); }
+
+.empty p {
+  font-size: 14px; color: var(--text-mid);
+  max-width: 400px; line-height: 1.75;
+}
+
+.chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center; margin-top: 32px;
+}
+
+.chip {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 100px; padding: 8px 16px;
+  font-family: var(--font-head); font-size: 12.5px; font-weight: 500;
+  color: var(--text-mid); cursor: pointer; transition: all 0.2s;
+}
+.chip:hover {
+  border-color: var(--teal); color: var(--teal);
+  background: var(--teal-glow);
+  box-shadow: 0 0 14px var(--teal-glow);
+  transform: translateY(-1px);
+}
+
+/* ── MESSAGE ROWS ────────────────────────────────────────────────────── */
+.msg {
+  display: flex; gap: 13px;
+  animation: msg-in 0.28s cubic-bezier(0.22,1,0.36,1);
+  padding: 4px 0;
+}
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.msg.user { flex-direction: row-reverse; }
+
+.avatar {
+  width: 34px; height: 34px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 2px;
+}
+
+.msg.ai .avatar {
+  background: linear-gradient(135deg, #00c9a7, #0098ff);
+  box-shadow: 0 0 14px rgba(0,201,167,0.25);
+}
+
+.msg.user .avatar {
+  background: var(--bg-card); border: 1px solid var(--border-lit);
+}
+
+.msg-body { flex: 1; max-width: calc(100% - 47px); }
+
+.msg-label {
+  font-family: var(--font-head); font-weight: 700;
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-lo); margin-bottom: 6px;
+}
+.msg.user .msg-label { text-align: right; color: var(--teal); opacity: 0.55; }
+
+.bubble {
+  padding: 14px 18px; border-radius: 12px;
+  font-size: 14.5px; line-height: 1.75;
+  white-space: pre-wrap; word-wrap: break-word;
+}
+.msg.ai   .bubble { background: var(--ai-bg);   border: 1px solid var(--border); border-top-left-radius: 3px; }
+.msg.user .bubble { background: var(--user-bg); border: 1px solid var(--border-lit); border-top-right-radius: 3px; }
+
+.bubble code {
+  background: rgba(0,201,167,0.1); border: 1px solid rgba(0,201,167,0.2);
+  border-radius: 4px; padding: 1px 6px; font-size: 12.5px;
+  color: var(--teal); font-family: var(--font-mono);
+}
+.bubble strong { color: #fff; font-weight: 700; }
+.bubble em     { color: #adb9d4; font-style: italic; }
+
+.msg-actions {
+  display: flex; gap: 5px; margin-top: 7px;
+  opacity: 0; transition: opacity 0.18s;
+}
+.msg:hover .msg-actions { opacity: 1; }
+.msg.user .msg-actions  { justify-content: flex-end; }
+
+.act-btn {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 11px;
+  font-family: var(--font-head); font-size: 11px; font-weight: 600;
+  color: var(--text-mid); cursor: pointer; transition: all 0.15s;
+}
+.act-btn:hover { border-color: var(--teal); color: var(--teal); }
+
+/* ── TYPING ──────────────────────────────────────────────────────────── */
+.typing {
+  padding: 15px 18px;
+  background: var(--ai-bg); border: 1px solid var(--border);
+  border-radius: 12px; border-top-left-radius: 3px;
+  display: flex; gap: 5px; align-items: center; width: fit-content;
+}
+.typing span {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--teal); opacity: 0.3;
+  animation: dot 1.3s ease-in-out infinite;
+}
+.typing span:nth-child(2) { animation-delay: 0.18s; }
+.typing span:nth-child(3) { animation-delay: 0.36s; }
+@keyframes dot {
+  0%, 100% { opacity: 0.2; transform: scale(0.75); }
+  50%       { opacity: 1;   transform: scale(1.1); }
+}
+
+/* ── INPUT AREA ──────────────────────────────────────────────────────── */
+.input-area {
+  border-top: 1px solid var(--border);
+  padding: 14px 24px 18px;
+  background: rgba(7,9,15,0.9); backdrop-filter: blur(16px);
+  position: relative; z-index: 10; flex-shrink: 0;
+}
+
+.input-wrap { max-width: 800px; margin: 0 auto; }
+
+.input-box {
+  display: flex; align-items: flex-end; gap: 9px;
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 10px 10px 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.input-box:focus-within {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px var(--teal-glow), 0 0 24px var(--teal-glow2);
+}
+
+#prompt {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--text-hi); font-family: var(--font-body); font-size: 14.5px;
+  resize: none; max-height: 190px; line-height: 1.65;
+  padding: 3px 0; scrollbar-width: none;
+}
+#prompt::placeholder { color: var(--text-lo); }
+#prompt::-webkit-scrollbar { display: none; }
+
+#send-btn {
+  width: 40px; height: 40px; flex-shrink: 0;
+  background: var(--teal); border: none; border-radius: 9px;
+  color: #07090f; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 16px rgba(0,201,167,0.3);
+}
+#send-btn:hover   { background: #00e0ba; transform: scale(1.06); }
+#send-btn:active  { transform: scale(0.94); }
+#send-btn:disabled { background: var(--border-lit); box-shadow: none; cursor: not-allowed; transform: none; }
+
+.input-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 8px; padding: 0 2px;
+}
+.input-note { font-family: var(--font-head); font-size: 11px; color: var(--text-lo); }
+
+.progress { height: 2px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.progress-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--teal), #0098ff);
+  border-radius: 2px; transition: width 0.35s ease;
+}
+
+/* ── ERROR BANNER ────────────────────────────────────────────────────── */
+.error-banner {
+  background: rgba(255,95,126,0.1); border: 1px solid rgba(255,95,126,0.25);
+  border-radius: var(--radius-sm); padding: 11px 15px;
+  font-family: var(--font-head); font-size: 12.5px; color: #ff8fa3;
+  display: flex; align-items: center; gap: 9px; margin-bottom: 8px;
+}
+
+/* ── TOAST ───────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 88px; right: 22px; z-index: 999;
+  background: var(--bg-card); border: 1px solid var(--border-lit);
+  border-radius: var(--radius-sm); padding: 10px 16px;
+  font-family: var(--font-head); font-size: 12.5px; color: var(--text-hi);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  animation: toast-in 0.28s ease, toast-out 0.28s ease 2.6s forwards;
+  display: flex; align-items: center; gap: 9px;
+}
+@keyframes toast-in  { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+@keyframes toast-out { to   { opacity:0; transform:translateY(8px) } }
+
+/* ── RESPONSIVE ──────────────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .msgs-inner, .input-wrap { padding-left: 14px; padding-right: 14px; }
+  .chat-header { padding: 0 14px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── SIDEBAR ──────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+
+      <!-- Brand -->
+      <div class="brand">
+        <div class="brand-icon">
+          <!-- ScoTech custom icon: stylised circuit-node 'S' -->
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="11" cy="3"  r="2" fill="#07090f"/>
+            <circle cx="11" cy="19" r="2" fill="#07090f"/>
+            <circle cx="3"  cy="11" r="2" fill="#07090f"/>
+            <circle cx="19" cy="11" r="2" fill="#07090f"/>
+            <path d="M11 5 C11 8, 5 8, 5 11 C5 14, 11 14, 11 17" stroke="#07090f" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <path d="M11 5 C11 8, 17 8, 17 11" stroke="#07090f" stroke-width="2.2" stroke-linecap="round" fill="none" stroke-dasharray="0"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">Sco<span>Tech</span></div>
+          <div class="brand-ver">AI Platform</div>
+        </div>
+      </div>
+
+      <!-- New chat -->
+      <button class="btn-new" onclick="newChat()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        New Conversation
+      </button>
+    </div>
+
+    <!-- History -->
+    <div class="sidebar-scroll">
+      <div class="section-label">Recent</div>
+      <div id="hist-list"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        <span>Gemini 1.5 Flash · Online</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ──────────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Header -->
+    <header class="chat-header">
+      <div class="header-left">
+        <div class="chat-name" id="chat-name">New Conversation</div>
+        <div class="chat-meta">ScoTech AI · Text Generation v1.0</div>
+      </div>
+      <div class="header-right">
+        <!-- Clear -->
+        <button class="icon-btn" title="Clear conversation" onclick="newChat()">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M2 7.5a5.5 5.5 0 1 1 .5 2.3M2 10V7.5H4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <!-- Export -->
+        <button class="icon-btn" title="Export chat" onclick="exportChat()">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M7.5 1v9m-3.5-3 3.5 3.5L11 7M2 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Messages -->
+    <div class="msgs-wrap" id="msgs-wrap">
+
+      <!-- Empty state -->
+      <div class="empty" id="empty">
+        <div class="empty-orb">
+          <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+            <circle cx="19" cy="5"  r="3.5" fill="#07090f"/>
+            <circle cx="19" cy="33" r="3.5" fill="#07090f"/>
+            <circle cx="5"  cy="19" r="3.5" fill="#07090f"/>
+            <circle cx="33" cy="19" r="3.5" fill="#07090f"/>
+            <path d="M19 8.5 C19 14, 8.5 14, 8.5 19 C8.5 24, 19 24, 19 29.5" stroke="#07090f" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+            <path d="M19 8.5 C19 14, 29.5 14, 29.5 19" stroke="#07090f" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <h2>Meet <span>ScoTech AI</span></h2>
+        <p>Your secure, intelligent assistant. Ask anything — analysis, writing, code, research. Your data stays private.</p>
+        <div class="chips">
+          <div class="chip" onclick="useChip(this)">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 10.5 L4.5 3 L7 8 L9 5.5 L11 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Analyse a topic
+          </div>
+          <div class="chip" onclick="useChip(this)">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 4h9M2 6.5h6M2 9h7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Write me a story
+          </div>
+          <div class="chip" onclick="useChip(this)">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="2" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="2" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="7" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+            Explain a concept
+          </div>
+          <div class="chip" onclick="useChip(this)">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M6.5 4v3l2 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Summarise for me
+          </div>
+          <div class="chip" onclick="useChip(this)">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 10 L5.5 3 L9 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 7.5h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Translate text
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages list -->
+      <div class="msgs-inner" id="msgs-list" style="display:none;"></div>
+    </div>
+
+    <!-- Input -->
+    <div class="input-area">
+      <div class="input-wrap">
+        <div id="err-banner" style="display:none;" class="error-banner">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="#ff5f7e" stroke-width="1.5"/><path d="M7 4v3.5M7 9.5v.5" stroke="#ff5f7e" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span id="err-text"></span>
+        </div>
+        <div class="input-box">
+          <textarea id="prompt" rows="1"
+            placeholder="Ask ScoTech AI anything…"
+            onkeydown="onKey(event)"
+            oninput="onType(this)"></textarea>
+          <button id="send-btn" onclick="send()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 13V3M3 8l5-5 5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="input-footer">
+          <div class="input-note" id="session-label">No session active</div>
+          <div class="input-note">⏎ Send &nbsp;·&nbsp; Shift+⏎ Newline</div>
+        </div>
+        <div class="progress"><div class="progress-fill" id="prog"></div></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────────────
+const API = '/api/chat';   // Cloudflare Pages Function endpoint
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let sessions   = JSON.parse(localStorage.getItem('st_sessions') || '[]');
+let curId      = null;
+let history    = [];   // [{role, parts:[{text}]}, ...]
+let busy       = false;
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+renderHist();
+updateSessionLabel();
+
+// ── SESSIONS ───────────────────────────────────────────────────────────────
+function saveSessions() {
+  localStorage.setItem('st_sessions', JSON.stringify(sessions.slice(0, 40)));
+}
+
+function renderHist() {
+  const el = document.getElementById('hist-list');
+  el.innerHTML = '';
+  [...sessions].reverse().forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'hist-item' + (s.id === curId ? ' active' : '');
+    d.title = s.title;
+    d.innerHTML = `
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <path d="M2 11V3.5A1.5 1.5 0 0 1 3.5 2h6A1.5 1.5 0 0 1 11 3.5V11l-4.5-2L2 11Z"
+              stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+      </svg>
+      <span style="overflow:hidden;text-overflow:ellipsis">${esc(s.title)}</span>`;
+    d.onclick = () => loadSession(s.id);
+    el.appendChild(d);
+  });
+}
+
+function loadSession(id) {
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+  curId   = id;
+  history = s.history || [];
+  document.getElementById('chat-name').textContent = s.title;
+  rebuildMessages();
+  renderHist();
+  updateSessionLabel();
+}
+
+function rebuildMessages() {
+  const list  = document.getElementById('msgs-list');
+  const empty = document.getElementById('empty');
+  list.innerHTML = '';
+  if (!history.length) {
+    empty.style.display  = 'flex';
+    list.style.display   = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  list.style.display  = 'flex';
+  history.forEach(m => addBubble(m.role === 'user' ? 'user' : 'ai', m.parts[0].text, false));
+  scrollBot();
+}
+
+function newChat() {
+  curId   = null;
+  history = [];
+  document.getElementById('chat-name').textContent  = 'New Conversation';
+  document.getElementById('msgs-list').innerHTML    = '';
+  document.getElementById('msgs-list').style.display = 'none';
+  document.getElementById('empty').style.display    = 'flex';
+  hideErr();
+  renderHist();
+  updateSessionLabel();
+  document.getElementById('prompt').focus();
+}
+
+function updateSessionLabel() {
+  const el = document.getElementById('session-label');
+  el.textContent = curId
+    ? `Session · ${curId.slice(-6)}`
+    : 'No session active';
+}
+
+// ── SEND ───────────────────────────────────────────────────────────────────
+function onKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+}
+
+function onType(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 190) + 'px';
+  document.getElementById('prog').style.width = Math.min(el.value.length / 18, 100) + '%';
+}
+
+async function send() {
+  const ta  = document.getElementById('prompt');
+  const msg = ta.value.trim();
+  if (!msg || busy) return;
+
+  busy = true;
+  hideErr();
+  document.getElementById('send-btn').disabled = true;
+  ta.value = ''; ta.style.height = 'auto';
+  document.getElementById('prog').style.width = '0%';
+
+  // Show message area
+  document.getElementById('empty').style.display    = 'none';
+  document.getElementById('msgs-list').style.display = 'flex';
+
+  // Add user bubble
+  addBubble('user', msg);
+  history.push({ role: 'user', parts: [{ text: msg }] });
+
+  // Create session if needed
+  if (!curId) {
+    curId = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+    const title = msg.slice(0, 52) + (msg.length > 52 ? '…' : '');
+    sessions.push({ id: curId, title, history: [] });
+    document.getElementById('chat-name').textContent = title;
+    renderHist();
+    updateSessionLabel();
+  }
+
+  // Typing indicator
+  const typing = addTyping();
+
+  try {
+    const res = await fetch(API, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: curId, message: msg, history: history.slice(0, -1) }),
+    });
+
+    const data = await res.json();
+    typing.remove();
+
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+
+    addBubble('ai', data.reply);
+    history.push({ role: 'model', parts: [{ text: data.reply }] });
+
+    // Persist session locally
+    const s = sessions.find(x => x.id === curId);
+    if (s) s.history = history;
+    saveSessions();
+
+  } catch (err) {
+    typing.remove();
+    showErr(err.message || 'Something went wrong. Please try again.');
+    // Revert last user message
+    history.pop();
+    document.getElementById('msgs-list').lastElementChild?.remove();
+  }
+
+  busy = false;
+  document.getElementById('send-btn').disabled = false;
+  ta.focus();
+}
+
+// ── DOM HELPERS ────────────────────────────────────────────────────────────
+function addBubble(role, text, scroll = true) {
+  const list = document.getElementById('msgs-list');
+  const isAI = role === 'ai';
+  const div  = document.createElement('div');
+  div.className = `msg ${role}`;
+
+  const aiIcon = `<svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+    <circle cx="11" cy="3" r="2" fill="#07090f"/>
+    <circle cx="11" cy="19" r="2" fill="#07090f"/>
+    <circle cx="3" cy="11" r="2" fill="#07090f"/>
+    <circle cx="19" cy="11" r="2" fill="#07090f"/>
+    <path d="M11 5 C11 8, 5 8, 5 11 C5 14, 11 14, 11 17" stroke="#07090f" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <path d="M11 5 C11 8, 17 8, 17 11" stroke="#07090f" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+  </svg>`;
+
+  const userIcon = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <circle cx="8" cy="5" r="3" stroke="#7b8aaa" stroke-width="1.5"/>
+    <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="#7b8aaa" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>`;
+
+  div.innerHTML = `
+    <div class="avatar">${isAI ? aiIcon : userIcon}</div>
+    <div class="msg-body">
+      <div class="msg-label">${isAI ? 'SCOTECH AI' : 'YOU'}</div>
+      <div class="bubble">${mdLite(esc(text))}</div>
+      <div class="msg-actions">
+        <button class="act-btn" onclick="copyMsg(this,${JSON.stringify(text)})">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><rect x="1" y="3" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M3 3V2a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H8" stroke="currentColor" stroke-width="1.3"/></svg>
+          Copy
+        </button>
+        ${isAI ? `<button class="act-btn" onclick="regen()">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5a4 4 0 0 1 .6-2.1M5.5 1.5a4 4 0 0 1 3.9 4 4 4 0 0 1-4 4 4 4 0 0 1-3.2-1.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M1.5 8.5V6.5h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Regenerate
+        </button>` : ''}
+      </div>
+    </div>`;
+
+  list.appendChild(div);
+  if (scroll) scrollBot();
+}
+
+function addTyping() {
+  const list = document.getElementById('msgs-list');
+  const div  = document.createElement('div');
+  div.className = 'msg ai'; div.id = 'typing-row';
+  const aiIcon = `<svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+    <circle cx="11" cy="3" r="2" fill="#07090f"/>
+    <circle cx="11" cy="19" r="2" fill="#07090f"/>
+    <circle cx="3" cy="11" r="2" fill="#07090f"/>
+    <circle cx="19" cy="11" r="2" fill="#07090f"/>
+    <path d="M11 5 C11 8, 5 8, 5 11 C5 14, 11 14, 11 17" stroke="#07090f" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <path d="M11 5 C11 8, 17 8, 17 11" stroke="#07090f" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+  </svg>`;
+  div.innerHTML = `
+    <div class="avatar" style="background:linear-gradient(135deg,#00c9a7,#0098ff);box-shadow:0 0 14px rgba(0,201,167,.25)">${aiIcon}</div>
+    <div class="msg-body">
+      <div class="msg-label">SCOTECH AI</div>
+      <div class="typing"><span></span><span></span><span></span></div>
+    </div>`;
+  list.appendChild(div);
+  scrollBot();
+  return div;
+}
+
+function copyMsg(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.innerHTML = btn.innerHTML.replace('Copy', 'Copied!');
+    setTimeout(() => { btn.innerHTML = btn.innerHTML.replace('Copied!', 'Copy'); }, 2200);
+  });
+}
+
+function regen() {
+  if (history.length < 2 || busy) return;
+  history.pop();
+  document.getElementById('msgs-list').lastElementChild?.remove();
+  busy = false;
+  document.getElementById('send-btn').disabled = false;
+
+  const typing = addTyping();
+  busy = true;
+  document.getElementById('send-btn').disabled = true;
+
+  fetch(API, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: curId, message: history.at(-1).parts[0].text, history: history.slice(0,-1) }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    typing.remove();
+    if (data.error) throw new Error(data.error);
+    addBubble('ai', data.reply);
+    history.push({ role: 'model', parts: [{ text: data.reply }] });
+    const s = sessions.find(x => x.id === curId);
+    if (s) s.history = history;
+    saveSessions();
+  })
+  .catch(err => { typing.remove(); showErr(err.message); })
+  .finally(() => { busy = false; document.getElementById('send-btn').disabled = false; });
+}
+
+function useChip(el) {
+  const raw = el.textContent.trim();
+  document.getElementById('prompt').value = raw;
+  document.getElementById('prompt').focus();
+  onType(document.getElementById('prompt'));
+}
+
+function exportChat() {
+  if (!history.length) { toast('No messages to export.'); return; }
+  const txt = history.map(m =>
+    `[${ m.role === 'user' ? 'YOU' : 'SCOTECH AI' }]\n${m.parts[0].text}`
+  ).join('\n\n---\n\n');
+  const blob = new Blob([txt], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `scotech-chat-${Date.now()}.txt`;
+  a.click();
+  toast('Chat exported.');
+}
+
+function scrollBot() {
+  const w = document.getElementById('msgs-wrap');
+  setTimeout(() => { w.scrollTop = w.scrollHeight; }, 50);
+}
+
+function showErr(msg) {
+  const b = document.getElementById('err-banner');
+  document.getElementById('err-text').textContent = msg;
+  b.style.display = 'flex';
+}
+
+function hideErr() { document.getElementById('err-banner').style.display = 'none'; }
+
+function toast(msg) {
+  document.querySelector('.toast')?.remove();
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3100);
+}
+
+// ── MARKDOWN LITE ──────────────────────────────────────────────────────────
+function mdLite(s) {
+  return s
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,     '<em>$1</em>')
+    .replace(/`([^`]+)`/g,     '<code>$1</code>');
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+
+</body>
+</html>

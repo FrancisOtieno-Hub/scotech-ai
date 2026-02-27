@@ -1,0 +1,13 @@
+{
+  "name": "scotech-ai",
+  "version": "1.0.0",
+  "description": "ScoTech AI — Full-stack chat app powered by Gemini, Cloudflare Pages & Neon",
+  "private": true,
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.0"
+  },
+  "scripts": {
+    "dev": "npx wrangler pages dev public --compatibility-flag=nodejs_compat",
+    "deploy": "npx wrangler pages deploy public"
+  }
+}

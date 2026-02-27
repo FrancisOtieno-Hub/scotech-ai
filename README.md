@@ -1,0 +1,2 @@
+# scotech-ai
+Generative AI
