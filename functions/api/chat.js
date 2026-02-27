@@ -1,11 +1,10 @@
 /**
  * ScoTech AI — Cloudflare Pages Function
  * Route: /api/chat  (POST)
- * Features: Streaming SSE, Clerk auth, Neon persistence
  *
- * Env vars needed in Cloudflare Pages dashboard:
+ * Env vars (Cloudflare Pages dashboard):
  *   OPENROUTER_API_KEY  — openrouter.ai/keys
- *   CLERK_SECRET_KEY    — Clerk dashboard → API Keys (optional)
+ *   CLERK_SECRET_KEY    — Clerk dashboard (optional)
  *   DATABASE_URL        — Neon PostgreSQL connection string
  */
 
@@ -16,6 +15,7 @@ const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Content-Type': 'application/json',
 };
 
 export async function onRequestOptions() {
@@ -29,9 +29,9 @@ export async function onRequestPost(context) {
     const body = await request.json();
     const { sessionId, message, history = [], token } = body;
 
-    if (!message?.trim()) return jsonRes({ error: 'Message is required.' }, 400);
+    if (!message?.trim()) return json({ error: 'Message is required.' }, 400);
 
-    // Verify Clerk token (gracefully optional)
+    // Verify Clerk token (optional — gracefully degrades to guest)
     let userId = 'guest';
     if (token && env.CLERK_SECRET_KEY) {
       try {
@@ -44,21 +44,32 @@ export async function onRequestPost(context) {
       } catch (_) {}
     }
 
+    // Build messages array
     const messages = [
       { role: 'system', content: 'You are ScoTech AI, a smart, friendly, and precise assistant.' },
-      ...history.slice(-20).map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.parts[0].text })),
+      ...history.slice(-20).map(m => ({
+        role:    m.role === 'model' ? 'assistant' : 'user',
+        content: m.parts[0].text,
+      })),
       { role: 'user', content: message },
     ];
 
+    // Call OpenRouter (no streaming — reliable)
     const orRes = await fetch(OR_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type':  'application/json',
         'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://scotech-ai.pages.dev',
-        'X-Title': 'ScoTech AI',
+        'HTTP-Referer':  'https://scotech-ai.pages.dev',
+        'X-Title':       'ScoTech AI',
       },
-      body: JSON.stringify({ model: MODEL, messages, stream: true, temperature: 0.85, max_tokens: 2048 }),
+      body: JSON.stringify({
+        model:       MODEL,
+        messages,
+        stream:      false,
+        temperature: 0.85,
+        max_tokens:  2048,
+      }),
     });
 
     if (!orRes.ok) {
@@ -66,65 +77,39 @@ export async function onRequestPost(context) {
       throw new Error(err?.error?.message || `OpenRouter error ${orRes.status}`);
     }
 
-    const { readable, writable } = new TransformStream();
-    const writer  = writable.getWriter();
-    const encoder = new TextEncoder();
+    const orData = await orRes.json();
+    const aiText = orData?.choices?.[0]?.message?.content;
+    if (!aiText) throw new Error('Empty response from OpenRouter.');
 
-    (async () => {
-      let fullText = '';
+    // Persist to Neon (non-fatal)
+    if (env.DATABASE_URL && sessionId) {
       try {
-        const reader  = orRes.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
+        await neonQuery(env.DATABASE_URL, `
+          CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY, user_id TEXT DEFAULT 'guest',
+            title TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+          )`);
+        await neonQuery(env.DATABASE_URL, `
+          CREATE TABLE IF NOT EXISTS messages (
+            id SERIAL PRIMARY KEY, session_id TEXT REFERENCES sessions(id) ON DELETE CASCADE,
+            role TEXT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
+          )`);
+        const title = message.slice(0, 60) + (message.length > 60 ? '…' : '');
+        await neonQuery(env.DATABASE_URL,
+          `INSERT INTO sessions (id, user_id, title, updated_at) VALUES ($1,$2,$3,NOW())
+           ON CONFLICT (id) DO UPDATE SET updated_at=NOW()`,
+          [sessionId, userId, title]);
+        await neonQuery(env.DATABASE_URL,
+          `INSERT INTO messages (session_id, role, content) VALUES ($1,'user',$2),($1,'model',$3)`,
+          [sessionId, message, aiText]);
+      } catch (dbErr) { console.error('[DB]', dbErr.message); }
+    }
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop();
-
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') continue;
-            try {
-              const chunk = JSON.parse(data)?.choices?.[0]?.delta?.content;
-              if (chunk) {
-                fullText += chunk;
-                await writer.write(encoder.encode(`data: ${JSON.stringify({ chunk })}\n\n`));
-              }
-            } catch (_) {}
-          }
-        }
-
-        // Persist to Neon
-        if (env.DATABASE_URL && sessionId && fullText) {
-          try {
-            await neonQuery(env.DATABASE_URL, `CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT DEFAULT 'guest', title TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())`);
-            await neonQuery(env.DATABASE_URL, `CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, session_id TEXT REFERENCES sessions(id) ON DELETE CASCADE, role TEXT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW())`);
-            const title = message.slice(0, 60) + (message.length > 60 ? '…' : '');
-            await neonQuery(env.DATABASE_URL, `INSERT INTO sessions (id, user_id, title, updated_at) VALUES ($1,$2,$3,NOW()) ON CONFLICT (id) DO UPDATE SET updated_at=NOW()`, [sessionId, userId, title]);
-            await neonQuery(env.DATABASE_URL, `INSERT INTO messages (session_id,role,content) VALUES ($1,'user',$2),($1,'model',$3)`, [sessionId, message, fullText]);
-          } catch (dbErr) { console.error('[DB]', dbErr.message); }
-        }
-
-        await writer.write(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
-      } catch (e) {
-        await writer.write(encoder.encode(`data: ${JSON.stringify({ error: e.message })}\n\n`));
-      } finally {
-        await writer.close();
-      }
-    })();
-
-    return new Response(readable, {
-      status: 200,
-      headers: { ...CORS, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no' },
-    });
+    return json({ reply: aiText });
 
   } catch (err) {
     console.error('[ScoTech]', err);
-    return jsonRes({ error: err.message || 'Internal server error.' }, 500);
+    return json({ error: err.message || 'Internal server error.' }, 500);
   }
 }
 
@@ -140,6 +125,6 @@ async function neonQuery(databaseUrl, sql, params = []) {
   return res.json();
 }
 
-function jsonRes(data, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: CORS });
 }
