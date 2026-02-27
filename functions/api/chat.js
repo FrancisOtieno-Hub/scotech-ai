@@ -1,11 +1,6 @@
 /**
  * ScoTech AI — Cloudflare Pages Function
  * Route: /api/chat  (POST)
- *
- * Env vars (Cloudflare Pages dashboard):
- *   OPENROUTER_API_KEY  — openrouter.ai/keys
- *   CLERK_SECRET_KEY    — Clerk dashboard (optional)
- *   DATABASE_URL        — Neon PostgreSQL connection string
  */
 
 const MODEL  = 'openrouter/auto';
@@ -25,37 +20,39 @@ export async function onRequestOptions() {
 export async function onRequestPost(context) {
   const { request, env } = context;
 
+  // ── Step 1: Parse body ───────────────────────────────────────────────────
+  let body;
   try {
-    const body = await request.json();
-    const { sessionId, message, history = [], token } = body;
+    body = await request.json();
+  } catch (e) {
+    return json({ error: 'Invalid JSON body: ' + e.message, step: 1 }, 400);
+  }
 
-    if (!message?.trim()) return json({ error: 'Message is required.' }, 400);
+  const { sessionId, message, history = [], token } = body;
 
-    // Verify Clerk token (optional — gracefully degrades to guest)
-    let userId = 'guest';
-    if (token && env.CLERK_SECRET_KEY) {
-      try {
-        const v = await fetch('https://api.clerk.com/v1/tokens/verify', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${env.CLERK_SECRET_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        });
-        if (v.ok) { const d = await v.json(); userId = d?.sub || d?.user_id || 'guest'; }
-      } catch (_) {}
-    }
+  if (!message?.trim()) {
+    return json({ error: 'Message is empty.', step: 1 }, 400);
+  }
 
-    // Build messages array
-    const messages = [
-      { role: 'system', content: 'You are ScoTech AI, a smart, friendly, and precise assistant.' },
-      ...history.slice(-20).map(m => ({
-        role:    m.role === 'model' ? 'assistant' : 'user',
-        content: m.parts[0].text,
-      })),
-      { role: 'user', content: message },
-    ];
+  // ── Step 2: Check API key ────────────────────────────────────────────────
+  if (!env.OPENROUTER_API_KEY) {
+    return json({ error: 'OPENROUTER_API_KEY is not set in Cloudflare environment variables.', step: 2 }, 500);
+  }
 
-    // Call OpenRouter (no streaming — reliable)
-    const orRes = await fetch(OR_URL, {
+  // ── Step 3: Build messages ───────────────────────────────────────────────
+  const messages = [
+    { role: 'system', content: 'You are ScoTech AI, a smart and helpful assistant.' },
+    ...history.slice(-10).map(m => ({
+      role:    m.role === 'model' ? 'assistant' : 'user',
+      content: m.parts[0].text,
+    })),
+    { role: 'user', content: message },
+  ];
+
+  // ── Step 4: Call OpenRouter ──────────────────────────────────────────────
+  let orRes;
+  try {
+    orRes = await fetch(OR_URL, {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
@@ -71,46 +68,63 @@ export async function onRequestPost(context) {
         max_tokens:  2048,
       }),
     });
-
-    if (!orRes.ok) {
-      const err = await orRes.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `OpenRouter error ${orRes.status}`);
-    }
-
-    const orData = await orRes.json();
-    const aiText = orData?.choices?.[0]?.message?.content;
-    if (!aiText) throw new Error('Empty response from OpenRouter.');
-
-    // Persist to Neon (non-fatal)
-    if (env.DATABASE_URL && sessionId) {
-      try {
-        await neonQuery(env.DATABASE_URL, `
-          CREATE TABLE IF NOT EXISTS sessions (
-            id TEXT PRIMARY KEY, user_id TEXT DEFAULT 'guest',
-            title TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
-          )`);
-        await neonQuery(env.DATABASE_URL, `
-          CREATE TABLE IF NOT EXISTS messages (
-            id SERIAL PRIMARY KEY, session_id TEXT REFERENCES sessions(id) ON DELETE CASCADE,
-            role TEXT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
-          )`);
-        const title = message.slice(0, 60) + (message.length > 60 ? '…' : '');
-        await neonQuery(env.DATABASE_URL,
-          `INSERT INTO sessions (id, user_id, title, updated_at) VALUES ($1,$2,$3,NOW())
-           ON CONFLICT (id) DO UPDATE SET updated_at=NOW()`,
-          [sessionId, userId, title]);
-        await neonQuery(env.DATABASE_URL,
-          `INSERT INTO messages (session_id, role, content) VALUES ($1,'user',$2),($1,'model',$3)`,
-          [sessionId, message, aiText]);
-      } catch (dbErr) { console.error('[DB]', dbErr.message); }
-    }
-
-    return json({ reply: aiText });
-
-  } catch (err) {
-    console.error('[ScoTech]', err);
-    return json({ error: err.message || 'Internal server error.' }, 500);
+  } catch (e) {
+    return json({ error: 'Failed to reach OpenRouter: ' + e.message, step: 4 }, 502);
   }
+
+  // ── Step 5: Check OpenRouter response ────────────────────────────────────
+  if (!orRes.ok) {
+    let errBody;
+    try { errBody = await orRes.json(); } catch (_) { errBody = {}; }
+    return json({
+      error: errBody?.error?.message || `OpenRouter returned HTTP ${orRes.status}`,
+      status: orRes.status,
+      step: 5,
+    }, 502);
+  }
+
+  // ── Step 6: Extract reply ────────────────────────────────────────────────
+  let orData;
+  try {
+    orData = await orRes.json();
+  } catch (e) {
+    return json({ error: 'Could not parse OpenRouter response: ' + e.message, step: 6 }, 502);
+  }
+
+  const aiText = orData?.choices?.[0]?.message?.content;
+  if (!aiText) {
+    return json({ error: 'OpenRouter returned empty content.', raw: JSON.stringify(orData).slice(0, 300), step: 6 }, 502);
+  }
+
+  // ── Step 7: Persist to Neon (non-fatal) ──────────────────────────────────
+  if (env.DATABASE_URL && sessionId) {
+    try {
+      await neonQuery(env.DATABASE_URL, `
+        CREATE TABLE IF NOT EXISTS sessions (
+          id TEXT PRIMARY KEY, user_id TEXT DEFAULT 'guest',
+          title TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+      await neonQuery(env.DATABASE_URL, `
+        CREATE TABLE IF NOT EXISTS messages (
+          id SERIAL PRIMARY KEY, session_id TEXT REFERENCES sessions(id) ON DELETE CASCADE,
+          role TEXT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+      const title = message.slice(0, 60) + (message.length > 60 ? '…' : '');
+      await neonQuery(env.DATABASE_URL,
+        `INSERT INTO sessions (id, user_id, title, updated_at) VALUES ($1,'guest',$2,NOW())
+         ON CONFLICT (id) DO UPDATE SET updated_at=NOW()`,
+        [sessionId, title]);
+      await neonQuery(env.DATABASE_URL,
+        `INSERT INTO messages (session_id, role, content) VALUES ($1,'user',$2),($1,'model',$3)`,
+        [sessionId, message, aiText]);
+    } catch (dbErr) {
+      console.error('[DB Error]', dbErr.message);
+      // Non-fatal — still return reply
+    }
+  }
+
+  // ── Step 8: Success ──────────────────────────────────────────────────────
+  return json({ reply: aiText });
 }
 
 async function neonQuery(databaseUrl, sql, params = []) {
@@ -118,7 +132,11 @@ async function neonQuery(databaseUrl, sql, params = []) {
   const creds = btoa(`${url.username}:${url.password}`);
   const res   = await fetch(`https://${url.hostname}/sql`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${creds}`, 'Neon-Connection-String': databaseUrl },
+    headers: {
+      'Content-Type':           'application/json',
+      'Authorization':          `Basic ${creds}`,
+      'Neon-Connection-String': databaseUrl,
+    },
     body: JSON.stringify({ query: sql, params }),
   });
   if (!res.ok) throw new Error(`Neon ${res.status}: ${await res.text().catch(() => '')}`);
