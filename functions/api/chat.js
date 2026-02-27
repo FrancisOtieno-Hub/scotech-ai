@@ -9,7 +9,7 @@
  *   DATABASE_URL        — Neon PostgreSQL connection string
  */
 
-const MODEL    = 'google/gemini-2.0-flash-exp:free';
+const MODEL = 'openrouter/free';
 const OR_URL   = 'https://openrouter.ai/api/v1/chat/completions';
 
 const CORS = {
