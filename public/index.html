@@ -25,8 +25,7 @@
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
-<link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
-<link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;600;700;800;900&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 <!-- Clerk -->
@@ -232,8 +231,8 @@ html,body{height:100%;background:var(--bg-base);color:var(--text-hi);overflow:hi
 <!-- ── AUTH MODAL ── -->
 <div class="auth-overlay" id="auth-overlay" style="display:none">
   <div class="auth-modal">
-    <div class="auth-logo">
-      <img src="/icons/icon-192.png" alt="ScoTech AI" width="28" height="28" style="border-radius:6px;">
+    <div class="auth-logo" style="padding:0;overflow:hidden;">
+      <img src="/icons/icon-192.png" alt="ScoTech AI" width="56" height="56" style="display:block;border-radius:16px;width:100%;height:100%;object-fit:cover;">
     </div>
     <h2>Welcome to ScoTech AI</h2>
     <p>Sign in to save your conversations and access ScoTech AI from any device.</p>
@@ -299,10 +298,9 @@ html,body{height:100%;background:var(--bg-base);color:var(--text-hi);overflow:hi
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-top">
       <div class="brand">
-        <div class="brand-icon">
-          <img src="/icons/icon-192.png" alt="ScoTech AI" width="28" height="28" style="border-radius:6px;">
+        <div class="brand-icon" style="padding:0;overflow:hidden;">
+          <img src="/icons/icon-192.png" alt="ScoTech AI" width="36" height="36" style="display:block;border-radius:10px;width:100%;height:100%;object-fit:cover;">
         </div>
-        <div>
           <div class="brand-name">Sco<span>Tech</span></div>
           <div class="brand-ver">AI Platform</div>
         </div>
@@ -356,8 +354,8 @@ html,body{height:100%;background:var(--bg-base);color:var(--text-hi);overflow:hi
 
     <div class="msgs-wrap" id="msgs-wrap">
       <div class="empty" id="empty">
-        <div class="empty-orb">
-          <img src="/icons/icon-192.png" alt="ScoTech AI" width="28" height="28" style="border-radius:6px;">
+        <div class="empty-orb" style="padding:0;overflow:hidden;">
+          <img src="/icons/icon-192.png" alt="ScoTech AI" width="80" height="80" style="display:block;border-radius:22px;width:100%;height:100%;object-fit:cover;">
         </div>
         <h2>Meet <span>ScoTech AI</span></h2>
         <p>Your secure, intelligent assistant. Ask anything — analysis, writing, code, research.</p>
