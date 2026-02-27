@@ -111,7 +111,7 @@ html,body{height:100%;background:var(--bg-base);color:var(--text-hi);overflow:hi
 .chat-name{font-family:var(--font-head);font-weight:700;font-size:14.5px;color:var(--text-hi);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px}
 .chat-meta{font-family:var(--font-head);font-size:11px;color:var(--text-lo);margin-top:1px}
 .header-right{display:flex;gap:6px;flex-shrink:0}
-.icon-btn{width:34px;height:34px;border-radius:var(--radius-sm);background:var(--bg-card);border:1px solid var(--border);color:var(--text-mid);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+.icon-btn{width:34px;height:34px;border-radius:var(--radius-sm);background:var(--bg-card);border:1px solid var(--border);color:var(--text-hi);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
 .icon-btn:hover{border-color:var(--border-lit);color:var(--text-hi);background:var(--bg-hover)}
 .icon-btn:active{transform:scale(0.93)}
 
@@ -345,10 +345,16 @@ html,body{height:100%;background:var(--bg-base);color:var(--text-hi);overflow:hi
       </div>
       <div class="header-right">
         <button class="icon-btn" title="Clear conversation" onclick="newChat()">
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5a5.5 5.5 0 1 1 .5 2.3M2 10V7.5H4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <!-- Heroicons: trash -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
         </button>
         <button class="icon-btn" title="Export chat" onclick="exportChat()">
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1v9m-3.5-3 3.5 3.5L11 7M2 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <!-- Heroicons: arrow-down-tray (download) -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/>
+          </svg>
         </button>
       </div>
     </header>
@@ -394,10 +400,19 @@ html,body{height:100%;background:var(--bg-base);color:var(--text-hi);overflow:hi
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3 8l5-5 5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
-        <div class="input-footer">
-          <div class="input-note" id="session-label">Ready</div>
-          <div class="input-note">⏎ Send · Shift+⏎ Newline</div>
-        </div>
+          <div class="input-footer">
+            <div class="input-note" id="session-label">Ready</div>
+            <div class="input-note" style="display:flex;align-items:center;gap:6px;">
+              <!-- Enter key icon -->
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+              Send ·
+              <!-- Shift icon -->
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="12 19 12 5"/><polyline points="5 12 12 5 19 12"/></svg>
+              +
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+              Newline
+            </div>
+          </div>
         <div class="progress"><div class="progress-fill" id="prog"></div></div>
       </div>
     </div>
